@@ -1,0 +1,78 @@
+version: "3.9"
+
+services:
+  # ==============================================================================
+  # Vector Database: ChromaDB persistent server
+  # ==============================================================================
+  studysync_chroma:
+    image: chromadb/chroma:latest
+    container_name: studysync_chroma
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - PERSIST_DIRECTORY=/chroma/chroma
+      - ANONYMIZED_TELEMETRY=FALSE
+    networks:
+      - studysync_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ==============================================================================
+  # Backend: FastAPI RAG & Ingestion Service
+  # ==============================================================================
+  studysync_backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: studysync_backend
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./backend:/app
+    environment:
+      - PROJECT_NAME=StudySync AI Backend
+      - ENVIRONMENT=development
+      - PORT=8000
+      - CHROMA_HOST=studysync_chroma
+      - CHROMA_PORT=8000
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+    depends_on:
+      studysync_chroma:
+        condition: service_healthy
+    networks:
+      - studysync_net
+    restart: unless-stopped
+
+  # ==============================================================================
+  # Frontend: Next.js 14 Web Interface (Material UI)
+  # ==============================================================================
+  studysync_frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: studysync_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8001/api/v1
+    depends_on:
+      - studysync_backend
+    networks:
+      - studysync_net
+    restart: unless-stopped
+
+volumes:
+  chroma_data:
+    driver: local
+
+networks:
+  studysync_net:
+    driver: bridge
