@@ -1,0 +1,39 @@
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+
+# Progression Tracking (Ignored so daily logs do not leak into git repository)
+progress_logs/
+.day_plans/
+
+# Python & Backend
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# ChromaDB Data Volume
+chroma_data/
+
+# Node & Next.js Frontend
+node_modules/
+.next/
+out/
+.npm
+*.tsbuildinfo
+next-env.d.ts
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
