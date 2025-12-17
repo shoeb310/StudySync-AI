@@ -13,8 +13,10 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     PORT: int = 8000
 
-    # Google Gemini API Key
+    # Google Gemini API Settings
     GEMINI_API_KEY: str = ""
+    GEMINI_CHAT_MODEL: str = "gemini-3.5-flash-lite"
+    GEMINI_CHAT_FALLBACK_MODEL: str = "gemini-3.5-flash"
 
     # ChromaDB Vector Database Settings
     CHROMA_HOST: str = "localhost"

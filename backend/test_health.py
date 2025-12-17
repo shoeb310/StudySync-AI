@@ -1,5 +1,5 @@
 """
-Verification test for Day 1: Healthcheck and Application Skeleton
+Verification test: Healthcheck and Application Skeleton
 Runs against FastAPI app using FastAPI TestClient.
 """
 from fastapi.testclient import TestClient
@@ -33,7 +33,7 @@ def test_health_endpoint():
 
 
 if __name__ == "__main__":
-    print("Running Day 1 Verification Tests...")
+    print("Running Healthcheck Verification Tests...")
     test_root_endpoint()
     test_health_endpoint()
-    print("All Day 1 tests passed successfully!")
+    print("All healthcheck verification tests passed successfully!")
