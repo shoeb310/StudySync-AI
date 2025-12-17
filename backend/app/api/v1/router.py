@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1 import health, ingestion, notebooks
+from app.api.v1 import health, ingestion, notebooks, retrieval
 
 api_v1_router = APIRouter()
 
@@ -11,4 +11,4 @@ api_v1_router.include_router(ingestion.router, prefix="/upload", tags=["Document
 api_v1_router.include_router(notebooks.router, tags=["Notebook Management"])
 
 # Streaming retrieval and chat routers
-# api_v1_router.include_router(retrieval.router, prefix="/chat", tags=["Streaming Retrieval"])
+api_v1_router.include_router(retrieval.router, prefix="/chat", tags=["Streaming Retrieval"])
