@@ -30,3 +30,20 @@ class DeleteResponse(BaseModel):
     notebook_id: str
     message: str
     deleted_chunks: int = 0
+
+
+class DocumentChunkDetail(BaseModel):
+    """Chunk detail for document reading."""
+    chunk_id: str
+    page_number: int
+    text: str
+
+
+class DocumentContentResponse(BaseModel):
+    """Full document content reconstructed from stored chunks."""
+    notebook_id: str
+    filename: str
+    total_chunks: int
+    total_pages: int
+    chunks: List[DocumentChunkDetail] = Field(default_factory=list)
+

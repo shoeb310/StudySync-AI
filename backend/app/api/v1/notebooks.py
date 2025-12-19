@@ -2,7 +2,13 @@ import logging
 from collections import defaultdict
 from fastapi import APIRouter, HTTPException, status
 from app.core.chroma import get_documents_collection
-from app.schemas.document import NotebookListResponse, NotebookSummary, DeleteResponse
+from app.schemas.document import (
+    NotebookListResponse,
+    NotebookSummary,
+    DeleteResponse,
+    DocumentContentResponse,
+    DocumentChunkDetail,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -110,3 +116,77 @@ async def clear_notebook_documents(notebook_id: str):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete notebook documents: {str(exc)}"
         )
+
+
+@router.get(
+    "/notebooks/{notebook_id}/documents/{filename}",
+    response_model=DocumentContentResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Read Uploaded Document Content",
+    description="Retrieves and reconstructs all text chunks of an uploaded document organized by page."
+)
+async def get_document_content(notebook_id: str, filename: str):
+    """
+    Retrieve all chunks for a specific document to enable full document reading.
+    """
+
+    sanitized_nb = notebook_id.strip()
+    sanitized_file = filename.strip()
+
+    if not sanitized_nb or not sanitized_file:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Notebook ID and filename are required."
+        )
+
+    try:
+        collection = get_documents_collection()
+        results = collection.get(
+            where={"notebook_id": sanitized_nb},
+            include=["documents", "metadatas"]
+        )
+
+        docs = results.get("documents", []) or []
+        metas = results.get("metadatas", []) or []
+        ids = results.get("ids", []) or []
+
+        matched_chunks = []
+        distinct_pages = set()
+
+        for doc_text, meta, chunk_id in zip(docs, metas, ids):
+            meta = meta or {}
+            if meta.get("filename") == sanitized_file:
+                page_num = int(meta.get("page_number", 1))
+                distinct_pages.add(page_num)
+                matched_chunks.append({
+                    "chunk_id": chunk_id,
+                    "page_number": page_num,
+                    "text": doc_text
+                })
+
+        if not matched_chunks:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Document '{sanitized_file}' was not found in notebook '{sanitized_nb}'."
+            )
+
+        # Sort chunks logically by page number and chunk ID
+        matched_chunks.sort(key=lambda c: (c["page_number"], c["chunk_id"]))
+
+        return DocumentContentResponse(
+            notebook_id=sanitized_nb,
+            filename=sanitized_file,
+            total_chunks=len(matched_chunks),
+            total_pages=len(distinct_pages),
+            chunks=[DocumentChunkDetail(**c) for c in matched_chunks]
+        )
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"Failed to fetch document content for '{sanitized_file}': {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unable to load document content: {str(exc)}"
+        )
+

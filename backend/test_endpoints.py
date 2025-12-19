@@ -48,6 +48,17 @@ def test_document_upload_and_lifecycle():
     assert test_filename in matching[0]["documents"]
     print(f" GET /api/v1/notebooks test PASSED (found notebook with {matching[0]['document_count']} docs)")
 
+    # 2b. Test GET /api/v1/notebooks/{notebook_id}/documents/{filename} (Document Reader API)
+    doc_res = client.get(f"/api/v1/notebooks/{test_notebook_id}/documents/{test_filename}")
+    assert doc_res.status_code == 200, f"Document read failed: {doc_res.text}"
+    doc_data = doc_res.json()
+    assert doc_data["notebook_id"] == test_notebook_id
+    assert doc_data["filename"] == test_filename
+    assert doc_data["total_chunks"] >= 2
+    assert len(doc_data["chunks"]) == doc_data["total_chunks"]
+    assert "Operating systems coordinate" in doc_data["chunks"][0]["text"]
+    print(f" GET /api/v1/notebooks/.../documents/... test PASSED (loaded {doc_data['total_chunks']} chunks, {doc_data['total_pages']} page(s))")
+
     # 3. Test DELETE /api/v1/documents/{notebook_id}
     delete_res = client.delete(f"/api/v1/documents/{test_notebook_id}")
     assert delete_res.status_code == 200, f"Delete failed: {delete_res.text}"
