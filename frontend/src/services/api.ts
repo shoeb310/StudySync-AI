@@ -1,4 +1,4 @@
-import { NotebookSummary, NotebookListResponse, UploadResponse, DeleteResponse } from "../types";
+import { NotebookSummary, NotebookListResponse, UploadResponse, DeleteResponse, CitationSource, DocumentContentResponse } from "../types";
 
 let resolvedApiBase: string | null = null;
 
@@ -123,4 +123,100 @@ export async function deleteNotebook(notebookId: string): Promise<DeleteResponse
     throw new ApiError(res.status, `Failed to delete documents: ${errText}`);
   }
   return res.json();
+}
+
+export async function fetchDocumentContent(
+  notebookId: string,
+  filename: string
+): Promise<DocumentContentResponse> {
+  const apiBase = await getApiBaseUrl();
+  const res = await fetch(
+    `${apiBase}/notebooks/${encodeURIComponent(notebookId)}/documents/${encodeURIComponent(filename)}`,
+    { cache: "no-store" }
+  );
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new ApiError(res.status, `Failed to load document content: ${errText}`);
+  }
+  return res.json();
+}
+
+export interface StreamChatCallbacks {
+  onToken: (token: string) => void;
+  onCitations: (citations: CitationSource[]) => void;
+  onError: (error: string) => void;
+}
+
+export async function streamChat(
+  query: string,
+  notebookId: string,
+  callbacks: StreamChatCallbacks,
+  signal?: AbortSignal
+): Promise<void> {
+  const apiBase = await getApiBaseUrl();
+
+  try {
+    const response = await fetch(`${apiBase}/chat/stream`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query,
+        notebook_id: notebookId,
+      }),
+      signal,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Chat error (${response.status}): ${errorText}`);
+    }
+
+    if (!response.body) {
+      throw new Error("No readable stream received from server.");
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith("data:")) continue;
+
+        const dataStr = trimmed.slice(5).trim();
+        if (dataStr === "[DONE]") {
+          return;
+        }
+
+        try {
+          const event = JSON.parse(dataStr);
+          if (event.type === "content" && event.token) {
+            callbacks.onToken(event.token);
+          } else if (event.type === "citations" && event.citations) {
+            callbacks.onCitations(event.citations);
+          } else if (event.type === "error") {
+            callbacks.onError(event.error || "Unknown streaming error");
+          }
+        } catch {
+          // ignore partial frame decode
+        }
+      }
+    }
+  } catch (err: any) {
+    if (err.name === "AbortError") {
+      return;
+    }
+    console.error("streamChat error:", err);
+    callbacks.onError(err.message || "Failed to communicate with chat service.");
+  }
 }

@@ -47,3 +47,17 @@ export interface ChatStreamEvent {
   citations?: CitationSource[];
   error?: string;
 }
+
+export interface DocumentChunkDetail {
+  chunk_id: string;
+  page_number: number;
+  text: string;
+}
+
+export interface DocumentContentResponse {
+  notebook_id: string;
+  filename: string;
+  total_chunks: number;
+  total_pages: number;
+  chunks: DocumentChunkDetail[];
+}
