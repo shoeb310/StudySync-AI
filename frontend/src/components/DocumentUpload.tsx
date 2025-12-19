@@ -12,12 +12,15 @@ import {
   ListItemIcon,
   ListItemText,
   Divider,
+  Button,
 } from "@mui/material";
 import CloudUploadOutlinedIcon from "@mui/icons-material/CloudUploadOutlined";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import AutoStoriesOutlinedIcon from "@mui/icons-material/AutoStoriesOutlined";
 import { uploadDocument } from "../services/api";
 import { UploadResponse } from "../types";
+import DocumentReaderDialog from "./DocumentReaderDialog";
 
 interface DocumentUploadProps {
   activeNotebookId: string;
@@ -35,6 +38,8 @@ export default function DocumentUpload({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const [readerOpen, setReaderOpen] = useState(false);
+  const [readingDocName, setReadingDocName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = async (file: File) => {
@@ -169,15 +174,46 @@ export default function DocumentUpload({
               {indexedDocuments.map((docName, idx) => (
                 <React.Fragment key={docName}>
                   {idx > 0 && <Divider />}
-                  <ListItem sx={{ py: 1.2, px: 2 }}>
+                  <ListItem
+                    sx={{ py: 1.2, px: 2 }}
+                    secondaryAction={
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<AutoStoriesOutlinedIcon sx={{ fontSize: 16 }} />}
+                          onClick={() => {
+                            setReadingDocName(docName);
+                            setReaderOpen(true);
+                          }}
+                          sx={{
+                            textTransform: "none",
+                            fontSize: "0.75rem",
+                            py: 0.3,
+                            px: 1.5,
+                            borderRadius: 1.5,
+                            borderColor: "divider",
+                            color: "primary.light",
+                            "&:hover": {
+                              borderColor: "primary.main",
+                              backgroundColor: "rgba(99, 102, 241, 0.08)",
+                            },
+                          }}
+                        >
+                          Read Document
+                        </Button>
+                        <CheckCircleOutlineIcon sx={{ color: "success.main", fontSize: 18 }} />
+                      </Box>
+                    }
+                  >
                     <ListItemIcon sx={{ minWidth: 36, color: "primary.light" }}>
                       <DescriptionOutlinedIcon sx={{ fontSize: 20 }} />
                     </ListItemIcon>
                     <ListItemText
                       primary={docName}
                       primaryTypographyProps={{ fontSize: "0.875rem", fontWeight: 500 }}
+                      sx={{ pr: 16 }}
                     />
-                    <CheckCircleOutlineIcon sx={{ color: "success.main", fontSize: 18 }} />
                   </ListItem>
                 </React.Fragment>
               ))}
@@ -185,6 +221,14 @@ export default function DocumentUpload({
           </Paper>
         </Box>
       )}
+
+      {/* Full Document Reader Dialog */}
+      <DocumentReaderDialog
+        open={readerOpen}
+        onClose={() => setReaderOpen(false)}
+        notebookId={activeNotebookId}
+        filename={readingDocName}
+      />
     </Box>
   );
 }
