@@ -18,14 +18,26 @@ import UploadFileIcon from "@mui/icons-material/UploadFile";
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import NotebookManager from "../components/NotebookManager";
 import DocumentUpload from "../components/DocumentUpload";
+import ChatWindow from "../components/ChatWindow";
+import CitationDrawer from "../components/CitationDrawer";
+import DocumentReaderDialog from "../components/DocumentReaderDialog";
 import { fetchNotebooks, deleteNotebook } from "../services/api";
-import { NotebookSummary } from "../types";
+import { NotebookSummary, CitationSource } from "../types";
 
 export default function StudyWorkspace() {
   const [notebooks, setNotebooks] = useState<NotebookSummary[]>([]);
   const [activeNotebookId, setActiveNotebookId] = useState<string>("");
   const [activeTab, setActiveTab] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
+
+  // Citation Drawer state
+  const [drawerOpen, setDrawerOpen] = useState<boolean>(false);
+  const [selectedCitation, setSelectedCitation] = useState<CitationSource | null>(null);
+  const [activeCitations, setActiveCitations] = useState<CitationSource[]>([]);
+
+  // Document Reader Dialog state
+  const [readerOpen, setReaderOpen] = useState<boolean>(false);
+  const [readingDocName, setReadingDocName] = useState<string>("");
 
   const loadNotebooks = async () => {
     try {
@@ -75,6 +87,17 @@ export default function StudyWorkspace() {
     }
   };
 
+  const handleOpenCitation = (citation: CitationSource, allCitations: CitationSource[]) => {
+    setSelectedCitation(citation);
+    setActiveCitations(allCitations);
+    setDrawerOpen(true);
+  };
+
+  const handleReadDocument = (filename: string) => {
+    setReadingDocName(filename);
+    setReaderOpen(true);
+  };
+
   const activeNotebook = notebooks.find((n) => n.notebook_id === activeNotebookId);
 
   return (
@@ -117,8 +140,8 @@ export default function StudyWorkspace() {
                 indicatorColor="primary"
                 sx={{ minHeight: "48px" }}
               >
-                <Tab icon={<UploadFileIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Upload" sx={{ minHeight: "48px", textTransform: "none", fontSize: "0.85rem" }} />
-                <Tab icon={<ChatBubbleOutlineIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Study Chat" sx={{ minHeight: "48px", textTransform: "none", fontSize: "0.85rem" }} />
+                <Tab icon={<UploadFileIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Upload Materials" sx={{ minHeight: "48px", textTransform: "none", fontSize: "0.85rem" }} />
+                <Tab icon={<ChatBubbleOutlineIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Academic Chat" sx={{ minHeight: "48px", textTransform: "none", fontSize: "0.85rem" }} />
               </Tabs>
 
               <Tooltip title="Refresh notebooks">
@@ -131,28 +154,43 @@ export default function StudyWorkspace() {
         </AppBar>
 
         {/* Tab Panel Area */}
-        <Box sx={{ flexGrow: 1, overflowY: "auto" }}>
+        <Box sx={{ flexGrow: 1, overflow: "hidden", display: "flex" }}>
           {activeTab === 0 ? (
-            <DocumentUpload
-              activeNotebookId={activeNotebookId}
-              indexedDocuments={activeNotebook?.documents || []}
-              onUploadSuccess={() => {
-                loadNotebooks();
-              }}
-            />
-          ) : (
-            <Box sx={{ p: 4, textAlign: "center", maxWidth: 600, mx: "auto", mt: 8 }}>
-              <Typography variant="h6" sx={{ mb: 1, color: "text.primary" }}>
-                Chat Interface Ready for Integration
-              </Typography>
-              <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                Active notebook context: <b>{activeNotebookId || "None"}</b>.
-                The academic chat thread, real-time SSE token stream, and Citation Drawer will be active here.
-              </Typography>
+            <Box sx={{ flexGrow: 1, overflowY: "auto" }}>
+              <DocumentUpload
+                activeNotebookId={activeNotebookId}
+                indexedDocuments={activeNotebook?.documents || []}
+                onUploadSuccess={() => {
+                  loadNotebooks();
+                }}
+              />
             </Box>
+          ) : (
+            <ChatWindow
+              activeNotebookId={activeNotebookId}
+              onOpenCitation={handleOpenCitation}
+            />
           )}
         </Box>
       </Box>
+
+      {/* Slide-out Source Citation Drawer */}
+      <CitationDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        selectedCitation={selectedCitation}
+        allCitations={activeCitations}
+        onSelectCitation={(c) => setSelectedCitation(c)}
+        onReadDocument={handleReadDocument}
+      />
+
+      {/* Workspace Document Reader Dialog */}
+      <DocumentReaderDialog
+        open={readerOpen}
+        onClose={() => setReaderOpen(false)}
+        notebookId={activeNotebookId}
+        filename={readingDocName}
+      />
     </Box>
   );
 }
