@@ -3,7 +3,7 @@ FROM node:18-alpine AS base
 WORKDIR /app
 
 # Install dependencies only when needed
-COPY package.json ./
+COPY package.json package-lock.json* ./
 RUN npm install
 
 # Copy application code
