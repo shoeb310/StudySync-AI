@@ -66,19 +66,22 @@ graph TD
     DU --> DR
     CD --> DR
 
-    DU -->|POST /api/v1/upload| API
-    CW -->|POST /api/v1/chat/stream| API
-    NM -->|GET /api/v1/notebooks| API
-    DR -->|GET /api/v1/notebooks/.../documents/...| API
+    DU -->|"POST /api/v1/upload"| API
+    CW -->|"POST /api/v1/chat/stream"| API
+    NM -->|"GET /api/v1/notebooks"| API
+    DR -->|"GET /api/v1/notebooks/.../documents/..."| API
 
-    API --> DP --> TS --> EM
-    EM -->|Generate Embeddings| GEMINI
-    EM -->|Upsert Chunks & Vectors| CHROMA
+    API --> DP
+    DP --> TS
+    TS --> EM
+    EM -->|"Generate 768-dim Embeddings"| GEMINI
+    EM -->|"Upsert Chunks & Vectors"| CHROMA
 
     API --> RAG
-    RAG -->|Similarity Search (Top-3)| CHROMA
-    RAG -->|Stream Generation (SSE)| GEMINI
-    GEMINI -->|Tokens| RAG -->|text/event-stream| CW
+    RAG -->|"Similarity Search Top-3"| CHROMA
+    RAG -->|"Stream Generation SSE"| GEMINI
+    GEMINI -->|"Tokens"| RAG
+    RAG -->|"text/event-stream"| CW
 ```
 
 ---
@@ -96,18 +99,18 @@ sequenceDiagram
     participant Embed as EmbeddingService
     participant Chroma as ChromaDB Collection
 
-    User->>UI: Upload syllabus.pdf to notebook 'cs-101'
+    User->>UI: Upload syllabus.pdf to notebook cs-101
     UI->>API: POST /api/v1/upload (multipart/form-data)
-    API->>Parser: parse_document(file_bytes, "syllabus.pdf")
-    Parser-->>API: List[PageData(page_num, text)]
-    API->>Splitter: split_pages(pages, notebook_id="cs-101")
-    Splitter-->>API: List[TextChunk(chunk_id, page, text, metadata)]
-    API->>Embed: get_embeddings_batch([chunk.text])
-    Embed-->>API: List[768-dim float vectors]
+    API->>Parser: parse_document(file_bytes, filename)
+    Parser-->>API: Extracted page text list
+    API->>Splitter: split_pages(pages, notebook_id)
+    Splitter-->>API: Windowed text chunks with metadata
+    API->>Embed: get_embeddings_batch(chunks)
+    Embed-->>API: 768-dim float vectors
     API->>Chroma: upsert(ids, embeddings, metadatas, documents)
     Chroma-->>API: Upsert Success
     API-->>UI: 201 Created (chunks_ingested, total_characters)
-    UI-->>User: Display ingestion badge & updated document count
+    UI-->>User: Display ingestion badge & document count
 ```
 
 ---
@@ -125,19 +128,19 @@ sequenceDiagram
     participant Drawer as Citation Drawer
 
     User->>Chat: "How does TCP handle packet loss?"
-    Chat->>Stream: POST /api/v1/chat/stream {query, notebook_id}
-    Stream->>Chroma: query(query_vector, n_results=3, where={notebook_id})
+    Chat->>Stream: POST /api/v1/chat/stream
+    Stream->>Chroma: Query top-3 similar chunks by cosine distance
     Chroma-->>Stream: Top-3 relevant chunks with metadata
-    Stream-->>Chat: SSE Event: data: {"type": "citations", "citations": [...]}
-    Stream->>Gemini: send_message_stream(academic_prompt_with_context)
+    Stream-->>Chat: SSE Event: citations payload
+    Stream->>Gemini: send_message_stream with academic context
     loop Token Streaming
-        Gemini-->>Stream: token chunk
-        Stream-->>Chat: SSE Event: data: {"type": "content", "token": "..."}
+        Gemini-->>Stream: Token chunk
+        Stream-->>Chat: SSE Event: content token
         Chat-->>User: Render token in chat bubble
     end
-    Stream-->>Chat: data: [DONE]
-    User->>Chat: Clicks inline citation badge '[Doc 1, Page 4]'
-    Chat->>Drawer: Open drawer with Doc 1 Page 4 snippet & chunk ID
+    Stream-->>Chat: SSE Event: [DONE]
+    User->>Chat: Clicks inline citation badge [Doc 1, Page 4]
+    Chat->>Drawer: Open drawer with Doc 1 Page 4 snippet
     Drawer-->>User: Inspect verified ground-truth context
 ```
 
